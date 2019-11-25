@@ -93,7 +93,8 @@ nn.add_layer(layer=layer)
 
 
 layer = nn.layers[0]
-x = np.array([0,1,-1])
+x = np.array([[0,1,-1], [1, 0, 0]])
 h = layer.feed_forward(x)
 layer = nn.layers[-1]
 layer.feed_forward(h)
+nn.feed_forward(x)
