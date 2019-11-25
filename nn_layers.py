@@ -13,7 +13,7 @@ def tanh(x):
     return np.tanh(x)
 
 
-class Layer:
+class DenseLayer:
     """
     This is a dense layer of a feed forward neural network.
 
@@ -35,6 +35,8 @@ class Layer:
 
     """
 
+    layer_type = 'Dense'
+
     def __init__(self, num_input_units, num_output_units, activation_function='', weights=None, bias=None):
         self.num_input_units = num_input_units
         self.num_output_units = num_output_units
@@ -47,11 +49,12 @@ class Layer:
                 self.activation_function = ReLu
         else:
             self.activation_function = activation_function
-        self.activation_function = activation_function
+
         if isinstance(weights, np.ndarray):
             self.weights = weights
         else:
             self.weights = np.random.normal(loc=0.0, scale=0.1, size=(num_output_units, num_input_units))
+
         if isinstance(bias, np.ndarray):
             self.bias = bias
         else:
@@ -65,34 +68,10 @@ class Layer:
 
     def feed_forward(self, x):
         """
-        Given a vector x in R^n, computes x^T * weights + bias and applies the activation function
+        Given a vector x in R^n, computes x.T * weights.T + bias and applies the activation function
 
         Inputs:
             x (numpy array) - A numpy array of shape (1, num_input_units)
 
         """
         return self.activation_function(np.dot(x, self.weights.T) + self.bias)
-
-
-
-
-
-
-
-
-layer = Layer(3, 2, weights=np.array([[0, 1], [2, 3], [4, 5]]), activation_function=ReLu)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
