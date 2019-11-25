@@ -74,27 +74,47 @@ class NeuralNetwork:
         return x
 
 
+def mate_neural_nets(NN1, NN2):
+    """
+    Given two neural networks, perform crossover and mutation of all the layers to produce an offspring
+
+    Inputs:
+        NN1 (NeuralNetwork) - The first neural network parent.
+        NN2 (NeuralNetwork) - The second neural network parent.
+
+    Returns:
+        NN (NeuralNetwork) - The neural network that results from performing crossover of the two parent NNs and
+                             mutating the result.
+    """
+    NN = NeuralNetwork()
+    for layer_1, layer_2 in zip(NN1.layers, NN2.layers):
+        layer = nn_layers.crossover_layers(layer_1, layer_2)
+        nn_layers.mutate_layer(layer)
+        NN.add_layer(layer=layer)
+    return NN
 
 
 
 
 
 
-nn = NeuralNetwork()
-weights1 = np.array([[1, 2, 3], [6, 5, 4]])
-bias1 = np.array([[-0.5, 0.5]])
-nn.add_layer(layer_type='Dense', num_input_units=3, num_output_units=2, weights=weights1, bias=bias1)
-weights2 = np.array([[-1, 1]])
-bias2 = np.array([[-1.8]])
+NN1 = NeuralNetwork()
+weights1 = np.array([[1, 1, 1], [1, 1, 1]])
+bias1 = np.array([[1, 1]])
+NN1.add_layer(layer_type='Dense', num_input_units=3, num_output_units=2, weights=weights1, bias=bias1)
+weights2 = np.array([[1, 1]])
+bias2 = np.array([[1]])
 layer = nn_layers.DenseLayer(num_input_units=2, num_output_units=1, weights=weights2, bias=bias2)
-nn.add_layer(layer=layer)
+NN1.add_layer(layer=layer)
 
+NN2 = NeuralNetwork()
+weights1 = np.array([[2, 2, 2], [2, 2, 2]])
+bias1 = np.array([[2, 2]])
+NN2.add_layer(layer_type='Dense', num_input_units=3, num_output_units=2, weights=weights1, bias=bias1)
+weights2 = np.array([[2, 2]])
+bias2 = np.array([[2]])
+layer = nn_layers.DenseLayer(num_input_units=2, num_output_units=1, weights=weights2, bias=bias2)
+NN2.add_layer(layer=layer)
 
+NN3 = mate_neural_nets(NN1, NN2)
 
-
-layer = nn.layers[0]
-x = np.array([[0,1,-1], [1, 0, 0]])
-h = layer.feed_forward(x)
-layer = nn.layers[-1]
-layer.feed_forward(h)
-nn.feed_forward(x)
