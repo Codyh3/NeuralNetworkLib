@@ -1,7 +1,7 @@
 import numpy as np
 
-from loss_models import loss_models
-from layers import nn_layers
+from neural_network_lib.loss_models import loss_models
+from neural_network_lib.layers import nn_layers
 
 
 __version__ = '0.0.0'
@@ -76,6 +76,19 @@ class NeuralNetwork:
         for layer in self.layers:
             print(f"{layer.layer_type}, {(layer.num_input_units, layer.num_output_units)}")
 
+    def get_architecture(self):
+        nn_architecture = []
+        for layer in self.layers:
+            temp_dict = dict(
+                        layer_type=layer.layer_type,
+                        num_input_units=layer.num_input_units,
+                        num_output_units=layer.num_output_units,
+                        activation_function=layer.activation_function.__name__,
+                        weights=layer.weights.tolist(),
+                        bias=layer.bias.tolist())
+            nn_architecture.append(temp_dict)
+        return nn_architecture
+
     def predict(self, x):
         for layer in self.layers:
             x = layer.predict(x)
@@ -103,13 +116,21 @@ class NeuralNetwork:
         sensitivities = sensitivities[::-1]
         return sensitivities
 
-    def compute_gradient(self, Activations, sensitivities):
+    def compute_gradient(self, X, y, loss_model, accumulate_grads=True):
+        S, Activations = self.forward_prop(X)
+        sensitivities = self.backward_prop(S, Activations, y, loss_model)
         weight_grads = []
-        bias_grads = sensitivities
+        bias_grads = []
         for s, x in zip(sensitivities, Activations):
             m, n = x.shape
             x = x.reshape(m, 1, n)
-            weight_grads.append(np.matmul(np.transpose(x, axes=[0, 2, 1]), s))
+            temp_weight_grad = np.matmul(np.transpose(x, axes=[0, 2, 1]), s)
+            if accumulate_grads:
+                weight_grads.append(loss_model.grad_accumulator(temp_weight_grad))
+                bias_grads.append(loss_model.grad_accumulator(s))
+            else:
+                weight_grads.append(temp_weight_grad)
+                bias_grads.append(s)
         return weight_grads, bias_grads
 
     def run_gradient_descent(self, loss_model, learning_rate=0.01, error_tolerance=0.01,
@@ -148,7 +169,6 @@ class NeuralNetwork:
                 print(f"{count} - {total_error}")
             count += 1
         return tot_err_array
-
 
 
 def create_nn_from_arch(nn_architecture):
@@ -230,55 +250,63 @@ x1 = np.array([[0, 0]])
 x2 = np.array([[0, 1]])
 x3 = np.array([[1, 0]])
 x4 = np.array([[1, 1]])
-loss_model = SumSquaresLoss()
+loss_model = loss_models.SumSquaresLoss()
 input_list = [x1, x2, x3, x4]
 output_list = [0, 1, 1, 0]
 
-idx = 0
+idx = 1
 x = input_list[idx]
 expected_output = output_list[idx]
 
-S, Activations = NN.forward_prop(x)
-sensitivities = NN.backward_prop(S, Activations, expected_output, loss_model)
-weight_grads, bias_grads = NN.compute_gradient(Activations, sensitivities)
-
-[array([[ 0.03705399, -0.04777052],
-        [ 0.03705399, -0.04777052]]),
- array([[-0.94675111],
-        [-1.09395155]])]
-
-[array([[ 0.03705399, -0.04777052]]),
- array([[-1.96298467]])]
+weight_grads, bias_grads = NN.compute_gradient(x, expected_output, loss_model)
 
 
 x = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
-loss_model = SumSquaresLoss()
+loss_model = loss_models.SumSquaresLoss()
 y = np.array([[0], [1], [1], [0]])
+y_hat = NN.predict(x)
+weight_grads, bias_grads = NN.compute_gradient(x, expected_output, loss_model)
 
-S, Activations = NN.forward_prop(x)
-expected_output = y
-sensitivities = NN.backward_prop(S, Activations, expected_output, loss_model)
-weight_grads, bias_grads = NN.compute_gradient(Activations, sensitivities)
-
-
-sensitivities = []
-L = len(NN.layers)
-m, n = Activations[L].shape
-sensitivities.append(np.matmul(loss_model.loss_gradient(Activations[L], expected_output).reshape(m, 1, n),
-                               NN.layers[L-1].dactivation_function(S[L-1])))
-for l in range(L-1, 0, -1):
-    delta = np.matmul(sensitivities[-1],
-                   np.matmul(NN.layers[l].weights.T, NN.layers[l-1].dactivation_function(S[l-1])))
-    sensitivities.append(delta)
-sensitivities = sensitivities[::-1]
-
-weight_grads = []
-bias_grads = sensitivities
-for s, x in zip(sensitivities, Activations):
-    m, n = x.shape
-    x = x.reshape(m, 1, n)
-    weight_grads.append(np.matmul(np.transpose(x, axes=[0, 2, 1]), s))
 ############################################################################################################
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+y = np.array([[0], [1], [1], [0]])
+loss_model = loss_models.SumSquaresLoss()
+
+
+def test_gradients(nn_arch, X, y, loss_model, h=0.001, tolerance=1e-8):
+    NN = create_nn_from_arch(nn_arch)
+    weight_grads, bias_grads = NN.compute_gradient(X, y, loss_model)
+    for l, layer in enumerate(NN.layers):
+        m, n = layer.num_input_units, layer.num_output_units
+        for j in range(n):
+            # Compare the bias gradients
+            nn_arch_1 = NN.get_architecture()
+            nn_arch_2 = NN.get_architecture()
+            nn_arch_1[l]['bias'][0][j] = nn_arch_1[l]['bias'][0][j] + h
+            nn_arch_2[l]['bias'][0][j] = nn_arch_2[l]['bias'][0][j] - h
+            NN1 = create_nn_from_arch(nn_arch_1)
+            NN2 = create_nn_from_arch(nn_arch_2)
+            y1 = loss_model.loss_function(NN1.predict(X), y)
+            y2 = loss_model.loss_function(NN2.predict(X), y)
+            numerical_gradient = (y1 - y2) / (2 * h)
+            if abs(bias_grads[l][0, j] - numerical_gradient) > tolerance:
+                print(f"PROBLEM at layer {l}, location {0, j} for bias gradients:")
+                print(f"numerical_grad={numerical_gradient}, bias_grad={bias_grads[l][0, j]}")
+            for i in range(m):
+                # Compare the weight gradients
+                nn_arch_1 = NN.get_architecture()
+                nn_arch_2 = NN.get_architecture()
+                nn_arch_1[l]['weights'][i][j] = nn_arch_1[l]['weights'][i][j] + h
+                nn_arch_2[l]['weights'][i][j] = nn_arch_2[l]['weights'][i][j] - h
+                NN1 = create_nn_from_arch(nn_arch_1)
+                NN2 = create_nn_from_arch(nn_arch_2)
+                y1 = loss_model.loss_function(NN1.predict(X), y)
+                y2 = loss_model.loss_function(NN2.predict(X), y)
+                numerical_gradient = (y1 - y2) / (2 * h)
+                if abs(weight_grads[l][i, j] - numerical_gradient) > tolerance:
+                    print(f"PROBLEM at layer {l}, location {i, j} for weight gradients:")
+                    print(f"numerical_grad={numerical_gradient}, weight_grad={weight_grads[l][i, j]}")
+                
 # =============================================================================
 # h=0.0001
 # act_1 = 'softmax'
@@ -344,7 +372,7 @@ for s, x in zip(sensitivities, Activations):
 # x2 = np.array([[0, 1]])
 # x3 = np.array([[1, 0]])
 # x4 = np.array([[1, 1]])
-# loss_model = SumSquaresLoss()
+# loss_model = loss_models.SumSquaresLoss()
 # input_list = [x1, x2, x3, x4]
 # output_list = [0, 1, 1, 0]
 # 

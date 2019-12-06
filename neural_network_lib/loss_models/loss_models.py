@@ -7,11 +7,14 @@ class SumSquaresLoss:
     Class that holds the loss function and gradient for the Sum of squared errors loss.
 
     """
-    def loss_function(self, x, y):
-        return (x - y) * (x - y)
+    def loss_function(self, y_hat, y):
+        return ((y_hat - y) * (y_hat - y)).mean()
 
     def loss_gradient(self, x, y):
         return 2 * (x - y)
+
+    def grad_accumulator(self, grads):
+        return np.mean(grads, axis=0)
 
 
 class LogLoss:

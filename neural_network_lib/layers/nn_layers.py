@@ -1,6 +1,6 @@
 import numpy as np
 
-import activation_functions
+from neural_network_lib.layers import activation_functions
 
 
 class DenseLayer:
@@ -51,11 +51,15 @@ class DenseLayer:
 
         if isinstance(weights, np.ndarray):
             self.weights = weights
+        elif isinstance(weights, list):
+            self.weights = np.array(weights)
         else:
             self.weights = np.random.normal(loc=0.0, scale=st_dev, size=(num_input_units, num_output_units))
 
         if isinstance(bias, np.ndarray):
             self.bias = bias
+        elif isinstance(bias, list):
+            self.bias = np.array(bias)
         else:
             self.bias = np.zeros(shape=(1, num_output_units))
 
