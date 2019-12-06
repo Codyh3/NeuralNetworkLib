@@ -1,41 +1,10 @@
 import numpy as np
-import nn_layers
+
+from loss_models import loss_models
+from layers import nn_layers
 
 
-class SumSquaresLoss:
-    """
-    Class that holds the loss function and gradient for the Sum of squared errors loss.
-
-    """
-    def loss_function(self, x, y):
-        return (x - y) * (x - y)
-
-    def loss_gradient(self, x, y):
-        return 2 * (x - y)
-
-
-class LogLoss:
-    """
-    Class that holds the loss function and gradient for the Sum of squared errors loss.
-
-    """
-    def loss_function(self, x, y):
-        return -(y * np.log(x) + (1 - y) * np.log((1 - x)))
-
-    def loss_gradient(self, x, y):
-        return - ((y / max(x, 1e-8)) + ((1 - y) / max(1 - x, 1e-8)))
-
-
-class CrossEntropyLoss:
-    """
-    Class that holds the loss function and gradient for the Sum of squared errors loss.
-
-    """
-    def loss_function(self, x, y):
-        return -np.dot(y, np.log(x).T).squeeze()
-
-    def loss_gradient(self, x, y):
-        return -y / np.maximum(x, 1e-8)
+__version__ = '0.0.0'
 
 
 class NeuralNetwork:
@@ -179,7 +148,7 @@ class NeuralNetwork:
                 print(f"{count} - {total_error}")
             count += 1
         return tot_err_array
-        
+
 
 
 def create_nn_from_arch(nn_architecture):
@@ -198,29 +167,6 @@ def create_nn_from_arch(nn_architecture):
     for layer in nn_architecture:
         NN.add_layer(**layer)
     return NN
-
-
-def mate_neural_nets(NN1, NN2, mutation_probability):
-    """
-    Given two neural networks, perform crossover and mutation of all the layers to produce an offspring
-
-    Inputs:
-        NN1 (NeuralNetwork) - The first neural network parent.
-        NN2 (NeuralNetwork) - The second neural network parent.
-        mutation_probability (float in (0, 1)) - The probability that a given element of the weights or bias will be
-                                                 mutated.
-
-    Returns:
-        NN (NeuralNetwork) - The neural network that results from performing crossover of the two parent NNs and
-                             mutating the result.
-    """
-    NN = NeuralNetwork()
-    for layer_1, layer_2 in zip(NN1.layers, NN2.layers):
-        layer = nn_layers.crossover_layers(layer_1, layer_2)
-        nn_layers.mutate_layer(layer, mutation_probability)
-        NN.add_layer(layer=layer)
-    return NN
-
 
 
 
