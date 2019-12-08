@@ -59,12 +59,12 @@ def d_tanh(x):
 
 
 def softmax(x):
-    exp_x = np.exp(x)
+    exp_x = np.exp(x - x.max(axis=1, keepdims=True))
     return exp_x / exp_x.sum(axis=1, keepdims=True)
 
 
 def pre_d_softmax(x):
-    vector = np.exp(x) / np.exp(x).sum()
+    vector = np.exp(x - x.max()) / np.exp(x - x.max()).sum()
     return np.diag(vector) - outer_product(vector)
 
 

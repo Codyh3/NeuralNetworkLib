@@ -76,7 +76,7 @@ class NeuralNetwork:
         for layer in self.layers:
             print(f"{layer.layer_type}, {(layer.num_input_units, layer.num_output_units)}")
 
-    def get_architecture(self):
+    def get_architecture(self, include_weights=False):
         nn_architecture = []
         for layer in self.layers:
             temp_dict = dict(
@@ -84,8 +84,10 @@ class NeuralNetwork:
                         num_input_units=layer.num_input_units,
                         num_output_units=layer.num_output_units,
                         activation_function=layer.activation_function.__name__,
-                        weights=layer.weights.tolist(),
-                        bias=layer.bias.tolist())
+                        )
+            if include_weights:
+                temp_dict['weights'] = layer.weights.tolist()
+                temp_dict['bias'] = layer.bias.tolist()
             nn_architecture.append(temp_dict)
         return nn_architecture
 
@@ -94,9 +96,9 @@ class NeuralNetwork:
             x = layer.predict(x)
         return x
 
-    def forward_prop(self, x):
+    def forward_prop(self, X):
         S = []
-        Activations = [x]
+        Activations = [X]
         for layer in self.layers:
             s, h = layer.feed_forward(Activations[-1])
             S.append(s)
@@ -189,44 +191,6 @@ def create_nn_from_arch(nn_architecture):
     return NN
 
 
-
-# =============================================================================
-# layer_1 = dict(
-#         layer_type='Dense',
-#         num_input_units=1,
-#         num_output_units=2,
-#         activation_function='tanh',
-#         weights=np.array(np.array([[0.3, 0.4]])),
-#         bias = np.array([[0.1, 0.2]])
-#         )
-# layer_2 = dict(
-#         layer_type='Dense',
-#         num_input_units=2,
-#         num_output_units=1,
-#         activation_function='tanh',
-#         weights=np.array(np.array([[1], [-3]])),
-#         bias = np.array([[0.2]])
-#         )
-# layer_3 = dict(
-#         layer_type='Dense',
-#         num_input_units=1,
-#         num_output_units=1,
-#         activation_function='tanh',
-#         weights=np.array(np.array([[2]])),
-#         bias = np.array([[1]])
-#         )
-# nn_arch = [layer_1, layer_2, layer_3]
-# NN = create_nn_from_arch(nn_arch)
-# 
-# x = np.array([[2]])
-# S, Activations = NN.forward_prop(x)
-# expected_output = 1
-# loss_model = SumSquaresLoss()
-# sensitivities = NN.backward_prop(S, Activations, expected_output, loss_model)
-# weight_grads, bias_grads = NN.compute_gradient(Activations, sensitivities)
-# =============================================================================
-
-
 layer_1 = dict(
         layer_type='Dense',
         num_input_units=2,
@@ -280,8 +244,8 @@ def test_gradients(nn_arch, X, y, loss_model, h=0.001, tolerance=1e-8):
         m, n = layer.num_input_units, layer.num_output_units
         for j in range(n):
             # Compare the bias gradients
-            nn_arch_1 = NN.get_architecture()
-            nn_arch_2 = NN.get_architecture()
+            nn_arch_1 = NN.get_architecture(include_weights=True)
+            nn_arch_2 = NN.get_architecture(include_weights=True)
             nn_arch_1[l]['bias'][0][j] = nn_arch_1[l]['bias'][0][j] + h
             nn_arch_2[l]['bias'][0][j] = nn_arch_2[l]['bias'][0][j] - h
             NN1 = create_nn_from_arch(nn_arch_1)
@@ -294,8 +258,8 @@ def test_gradients(nn_arch, X, y, loss_model, h=0.001, tolerance=1e-8):
                 print(f"numerical_grad={numerical_gradient}, bias_grad={bias_grads[l][0, j]}")
             for i in range(m):
                 # Compare the weight gradients
-                nn_arch_1 = NN.get_architecture()
-                nn_arch_2 = NN.get_architecture()
+                nn_arch_1 = NN.get_architecture(include_weights=True)
+                nn_arch_2 = NN.get_architecture(include_weights=True)
                 nn_arch_1[l]['weights'][i][j] = nn_arch_1[l]['weights'][i][j] + h
                 nn_arch_2[l]['weights'][i][j] = nn_arch_2[l]['weights'][i][j] - h
                 NN1 = create_nn_from_arch(nn_arch_1)
@@ -306,94 +270,82 @@ def test_gradients(nn_arch, X, y, loss_model, h=0.001, tolerance=1e-8):
                 if abs(weight_grads[l][i, j] - numerical_gradient) > tolerance:
                     print(f"PROBLEM at layer {l}, location {i, j} for weight gradients:")
                     print(f"numerical_grad={numerical_gradient}, weight_grad={weight_grads[l][i, j]}")
-                
+
+
+layer_1 = dict(
+        layer_type='Dense',
+        num_input_units=5,
+        num_output_units=4,
+        activation_function='softplus',
+        st_dev=2
+        )
+layer_2 = dict(
+        layer_type='Dense',
+        num_input_units=4,
+        num_output_units=3,
+        activation_function='softmax',
+        st_dev=2
+        )
+nn_arch = [layer_1, layer_2]
+NN = create_nn_from_arch(nn_arch)
+
+X = np.random.normal(size=(4, 5))
+y = np.array([0, 2, 1, 2])
+num_classes = np.max(y) + 1
+y = np.eye(num_classes)[y]
+
+
 # =============================================================================
-# h=0.0001
-# act_1 = 'softmax'
-# act_2 = 'identity'
+# clip_epsilon = 1e-20
+# y_hat = NN.predict(X)
+# y_hat = np.clip(y_hat, clip_epsilon, 1-clip_epsilon)
+# =============================================================================
+
+
+
+loss_model = loss_models.CrossEntropyLoss()
+weight_grads, bias_grads = NN.compute_gradient(X, y, loss_model)
+
+test_gradients(nn_arch, X, y, loss_model, h=0.00001, tolerance=1e-8)
+
+
+
+
+
+
+
+# =============================================================================
 # layer_1 = dict(
 #         layer_type='Dense',
-#         num_input_units=2,
+#         num_input_units=1,
 #         num_output_units=2,
-#         activation_function=act_1,
-#         weights=np.array([[-0.04919933, 0.05634465], [-0.02162292, 0.17382581]]),
-#         bias=np.array([[-0.5, 1]])
+#         activation_function='tanh',
+#         weights=np.array(np.array([[0.3, 0.4]])),
+#         bias = np.array([[0.1, 0.2]])
 #         )
 # layer_2 = dict(
 #         layer_type='Dense',
 #         num_input_units=2,
 #         num_output_units=1,
-#         activation_function=act_2,
-#         weights=np.array([[-0.07560012], [0.0986376]]),
-#         bias=np.array([[0+h]])
+#         activation_function='tanh',
+#         weights=np.array(np.array([[1], [-3]])),
+#         bias = np.array([[0.2]])
 #         )
-# nn_arch = [layer_1, layer_2]
-# NN1 = create_nn_from_arch(nn_arch)
-# 
-# layer_1 = dict(
+# layer_3 = dict(
 #         layer_type='Dense',
-#         num_input_units=2,
-#         num_output_units=2,
-#         activation_function=act_1,
-#         weights=np.array([[-0.04919933, 0.05634465], [-0.02162292, 0.17382581]]),
-#         bias=np.array([[-0.5, 1]])
-#         )
-# layer_2 = dict(
-#         layer_type='Dense',
-#         num_input_units=2,
+#         num_input_units=1,
 #         num_output_units=1,
-#         activation_function=act_2,
-#         weights=np.array([[-0.07560012], [0.0986376]]),
-#         bias=np.array([[0-h]])
+#         activation_function='tanh',
+#         weights=np.array(np.array([[2]])),
+#         bias = np.array([[1]])
 #         )
-# nn_arch = [layer_1, layer_2]
-# NN2 = create_nn_from_arch(nn_arch)
+# nn_arch = [layer_1, layer_2, layer_3]
+# NN = create_nn_from_arch(nn_arch)
 # 
-# layer_1 = dict(
-#         layer_type='Dense',
-#         num_input_units=2,
-#         num_output_units=2,
-#         activation_function=act_1,
-#         weights=np.array([[-0.04919933, 0.05634465], [-0.02162292, 0.17382581]]),
-#         bias=np.array([[-0.5, 1]])
-#         )
-# layer_2 = dict(
-#         layer_type='Dense',
-#         num_input_units=2,
-#         num_output_units=1,
-#         activation_function=act_2,
-#         weights=np.array([[-0.07560012], [0.0986376]]),
-#         bias=np.array([[0]])
-#         )
-# nn_arch = [layer_1, layer_2]
-# NN3 = create_nn_from_arch(nn_arch)
-# 
-# x1 = np.array([[0, 0]])
-# x2 = np.array([[0, 1]])
-# x3 = np.array([[1, 0]])
-# x4 = np.array([[1, 1]])
-# loss_model = loss_models.SumSquaresLoss()
-# input_list = [x1, x2, x3, x4]
-# output_list = [0, 1, 1, 0]
-# 
-# idx = 0
-# x = input_list[idx]
-# expected_output = output_list[idx]
-# 
-# S, Activations = NN3.forward_prop(x)
-# sensitivities = NN3.backward_prop(S, Activations, expected_output, loss_model)
-# weight_grads, bias_grads = NN3.compute_gradient(Activations, sensitivities)
-# 
-# 
-# y1 = loss_model.loss_function(NN1.predict(x), expected_output)
-# y2 = loss_model.loss_function(NN2.predict(x), expected_output)
-# print((y1 - y2) / (2 * h))
-# 
-# for idx in range(4):
-#     x = input_list[idx]
-#     expected_output = output_list[idx]
-# 
-#     y1 = loss_model.loss_function(NN1.predict(x), expected_output)
-#     y2 = loss_model.loss_function(NN2.predict(x), expected_output)
-#     print((y1 - y2) / (2 * h))
+# x = np.array([[2]])
+# S, Activations = NN.forward_prop(x)
+# expected_output = 1
+# loss_model = SumSquaresLoss()
+# sensitivities = NN.backward_prop(S, Activations, expected_output, loss_model)
+# weight_grads, bias_grads = NN.compute_gradient(Activations, sensitivities)
 # =============================================================================

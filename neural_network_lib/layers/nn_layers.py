@@ -43,6 +43,9 @@ class DenseLayer:
             elif activation_function in ['softmax', 'Softmax']:
                 self.activation_function = activation_functions.softmax
                 self.dactivation_function = activation_functions.d_softmax
+            elif activation_function in ['softplus', 'Softplus']:
+                self.activation_function = activation_functions.softplus
+                self.dactivation_function = activation_functions.d_softplus
             else:
                 self.activation_function = activation_functions.ReLu
                 self.dactivation_function = activation_functions.d_ReLu
