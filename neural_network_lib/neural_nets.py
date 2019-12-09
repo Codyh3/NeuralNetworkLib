@@ -135,41 +135,50 @@ class NeuralNetwork:
                 bias_grads.append(s)
         return weight_grads, bias_grads
 
-    def run_gradient_descent(self, loss_model, learning_rate=0.01, error_tolerance=0.01,
-                             input_list=[], output_list=[]):
-        total_error = 1e8
-        N = len(output_list)
-        weights_update = []
-        bias_update = []
-        max_epochs = 100000
-        count = 0
+    def run_batch_gradient_descent(self, X, y, loss_model, learning_rate=0.01,
+                                   error_tolerance=0.01, max_epochs=100000):
+        total_error = 1e16
+        epoch = 0
         tot_err_array = []
-        for i in range(len(self.layers)):
-            weights_update.append(np.zeros_like(self.layers[i].weights))
-            bias_update.append(np.zeros_like(self.layers[i].bias))
         while total_error > error_tolerance:
-            for x, y in zip(input_list, output_list):
-                S, Activations = self.forward_prop(x)
-                sensitivities = self.backward_prop(S, Activations, y, loss_model)
-                weight_grads, bias_grads = self.compute_gradient(Activations, sensitivities)
-                for i, (wg, bg) in enumerate(zip(weight_grads, bias_grads)):
-                    weights_update[i] = weights_update[i] + wg
-                    bias_update[i] = bias_update[i] + bg
-            for i in range(len(self.layers)):
-                self.layers[i].set_weights(self.layers[i].weights - (learning_rate * weights_update[i] / N))
-                self.layers[i].set_bias(self.layers[i].bias - (learning_rate * bias_update[i] / N))
-                weights_update[i] = weights_update[i] * 0
-                bias_update[i] = bias_update[i] * 0
-            total_error = 0
-            for x, y in zip(input_list, output_list):
-                total_error += loss_model.loss_function(self.predict(x), y)
-            total_error /= N
+            weight_grads, bias_grads = NN.compute_gradient(X, y, loss_model)
+            for i in range(len(NN.layers)):
+                NN.layers[i].set_weights(NN.layers[i].weights - (learning_rate * weight_grads[i]))
+                NN.layers[i].set_bias(NN.layers[i].bias - (learning_rate * bias_grads[i]))
+            total_error = loss_model.loss_function(NN.predict(X), y)
             tot_err_array.append(total_error)
-            if count > max_epochs:
+            if epoch > max_epochs:
                 break
-            if count % 1000 == 0:
-                print(f"{count} - {total_error}")
-            count += 1
+            if epoch % 1000 == 0:
+                print(f"{epoch} - {total_error}")
+            epoch += 1
+        return tot_err_array
+
+    def run_mini_batch_gradient_descent(self, X, y, loss_model, batch_size=128, learning_rate=0.01,
+                                        error_tolerance=0.01, max_epochs=100000):
+        total_error = 1e16
+        epoch = 0
+        tot_err_array = []
+        num_training_examples = X.shape[0]
+        if num_training_examples % batch_size == 0:
+            num_batch_loops = num_training_examples // batch_size
+        else:
+            num_batch_loops = num_training_examples // batch_size + 1
+        while total_error > error_tolerance:
+            for i in range(num_batch_loops):
+                weight_grads, bias_grads = NN.compute_gradient(X[i * batch_size:(i + 1) * batch_size, :],
+                                                               y[i * batch_size:(i + 1) * batch_size, :],
+                                                               loss_model)
+                for l in range(len(NN.layers)):
+                    NN.layers[l].set_weights(NN.layers[l].weights - (learning_rate * weight_grads[l]))
+                    NN.layers[l].set_bias(NN.layers[l].bias - (learning_rate * bias_grads[l]))
+            total_error = loss_model.loss_function(NN.predict(X), y)
+            tot_err_array.append(total_error)
+            if epoch > max_epochs:
+                break
+            if epoch % 1000 == 0:
+                print(f"{epoch} - {total_error}")
+            epoch += 1
         return tot_err_array
 
 
@@ -191,6 +200,7 @@ def create_nn_from_arch(nn_architecture):
     return NN
 
 
+############################################################################################################
 layer_1 = dict(
         layer_type='Dense',
         num_input_units=2,
@@ -272,18 +282,19 @@ def test_gradients(nn_arch, X, y, loss_model, h=0.001, tolerance=1e-8):
                     print(f"numerical_grad={numerical_gradient}, weight_grad={weight_grads[l][i, j]}")
 
 
+############################################################################################################
 layer_1 = dict(
         layer_type='Dense',
         num_input_units=5,
-        num_output_units=4,
+        num_output_units=3,
         activation_function='softplus',
         st_dev=2
         )
 layer_2 = dict(
         layer_type='Dense',
-        num_input_units=4,
-        num_output_units=3,
-        activation_function='softmax',
+        num_input_units=3,
+        num_output_units=1,
+        activation_function='sigmoid',
         st_dev=2
         )
 nn_arch = [layer_1, layer_2]
@@ -295,57 +306,73 @@ num_classes = np.max(y) + 1
 y = np.eye(num_classes)[y]
 
 
-# =============================================================================
-# clip_epsilon = 1e-20
-# y_hat = NN.predict(X)
-# y_hat = np.clip(y_hat, clip_epsilon, 1-clip_epsilon)
-# =============================================================================
-
-
-
 loss_model = loss_models.CrossEntropyLoss()
 weight_grads, bias_grads = NN.compute_gradient(X, y, loss_model)
 
-test_gradients(nn_arch, X, y, loss_model, h=0.00001, tolerance=1e-8)
+test_gradients(nn_arch, X, y, loss_model, h=0.00001, tolerance=1e-15)
+
+############################################################################################################
+layer_1 = dict(
+        layer_type='Dense',
+        num_input_units=2,
+        num_output_units=2,
+        activation_function='softplus',
+        )
+layer_2 = dict(
+        layer_type='Dense',
+        num_input_units=2,
+        num_output_units=1,
+        activation_function='identity',
+        )
+nn_arch = [layer_1, layer_2]
+NN = create_nn_from_arch(nn_arch)
+
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+y = np.array([[0], [1], [1], [0]])
+loss_model = loss_models.SumSquaresLoss()
+
+tot_err_array = NN.run_gradient_descent(X, y, loss_model, learning_rate=0.01, error_tolerance=0.000001, max_epochs=100000)
+
+NN.predict(X)
+
+test_gradients(NN.get_architecture(True), X, y, loss_model, h=0.00001, tolerance=1e-8)
 
 
+############################################################################################################
+layer_1 = dict(
+        layer_type='Dense',
+        num_input_units=784,
+        num_output_units=128,
+        activation_function='softplus',
+        )
+layer_2 = dict(
+        layer_type='Dense',
+        num_input_units=128,
+        num_output_units=10,
+        activation_function='softmax',
+        )
+nn_arch = [layer_1, layer_2]
+NN = create_nn_from_arch(nn_arch)
 
+from tensorflow import keras
+fashion_mnist = keras.datasets.fashion_mnist
+(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+               'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
+train_images = train_images / 255.0
+test_images = test_images / 255.0
+train_images = train_images.reshape((train_images.shape[0], -1))
+test_images = test_images.reshape((test_images.shape[0], -1))
 
+train_labels.shape
+num_classes = np.max(train_labels) + 1
+y = np.eye(num_classes)[train_labels]
 
+loss_model = loss_models.CrossEntropyLoss()
 
+tot_err_array = NN.run_mini_batch_gradient_descent(train_images, y, loss_model, batch_size=500,
+                                                   learning_rate=0.01, error_tolerance=0.01, max_epochs=100000)
 
-# =============================================================================
-# layer_1 = dict(
-#         layer_type='Dense',
-#         num_input_units=1,
-#         num_output_units=2,
-#         activation_function='tanh',
-#         weights=np.array(np.array([[0.3, 0.4]])),
-#         bias = np.array([[0.1, 0.2]])
-#         )
-# layer_2 = dict(
-#         layer_type='Dense',
-#         num_input_units=2,
-#         num_output_units=1,
-#         activation_function='tanh',
-#         weights=np.array(np.array([[1], [-3]])),
-#         bias = np.array([[0.2]])
-#         )
-# layer_3 = dict(
-#         layer_type='Dense',
-#         num_input_units=1,
-#         num_output_units=1,
-#         activation_function='tanh',
-#         weights=np.array(np.array([[2]])),
-#         bias = np.array([[1]])
-#         )
-# nn_arch = [layer_1, layer_2, layer_3]
-# NN = create_nn_from_arch(nn_arch)
-# 
-# x = np.array([[2]])
-# S, Activations = NN.forward_prop(x)
-# expected_output = 1
-# loss_model = SumSquaresLoss()
-# sensitivities = NN.backward_prop(S, Activations, expected_output, loss_model)
-# weight_grads, bias_grads = NN.compute_gradient(Activations, sensitivities)
-# =============================================================================
+y_hat = NN.predict(train_images)
+y_hat = np.argmax(y_hat, axis=1)
+print(f"ACCURACY = {(y_hat==training_labels).mean()}")
