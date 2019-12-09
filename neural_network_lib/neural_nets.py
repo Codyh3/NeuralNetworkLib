@@ -155,7 +155,7 @@ class NeuralNetwork:
         return tot_err_array
 
     def run_mini_batch_gradient_descent(self, X, y, loss_model, batch_size=128, learning_rate=0.01,
-                                        error_tolerance=0.01, max_epochs=100000):
+                                        error_tolerance=0.01, max_epochs=100000, epoch_print_mod=100):
         total_error = 1e16
         epoch = 0
         tot_err_array = []
@@ -176,7 +176,7 @@ class NeuralNetwork:
             tot_err_array.append(total_error)
             if epoch > max_epochs:
                 break
-            if epoch % 1000 == 0:
+            if epoch % epoch_print_mod == 0:
                 print(f"{epoch} - {total_error}")
             epoch += 1
         return tot_err_array
@@ -371,8 +371,16 @@ y = np.eye(num_classes)[train_labels]
 loss_model = loss_models.CrossEntropyLoss()
 
 tot_err_array = NN.run_mini_batch_gradient_descent(train_images, y, loss_model, batch_size=500,
-                                                   learning_rate=0.01, error_tolerance=0.01, max_epochs=100000)
+                                                   learning_rate=0.01, error_tolerance=0.01,
+                                                   max_epochs=100, epoch_print_mod=1)
 
 y_hat = NN.predict(train_images)
 y_hat = np.argmax(y_hat, axis=1)
-print(f"ACCURACY = {(y_hat==training_labels).mean()}")
+print(f"TRAIN ACCURACY = {(y_hat==train_labels).mean()}")
+y_hat = NN.predict(test_images)
+y_hat = np.argmax(y_hat, axis=1)
+print(f"TRAIN ACCURACY = {(y_hat==test_labels).mean()}")
+
+nn_arch = NN.get_architecture(True)
+with open('fashion_mnist.json', 'w') as stream:
+    json.dump(nn_arch, stream)
