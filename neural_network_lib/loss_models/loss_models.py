@@ -26,12 +26,16 @@ class LogLoss:
 
     """
     @staticmethod
-    def loss_function(x, y):
-        return -(y * np.log(x) + (1 - y) * np.log((1 - x)))
+    def loss_function(y_hat, y):
+        return -(y * np.log(y_hat) + (1 - y) * np.log((1 - y_hat)))
 
     @staticmethod
-    def loss_gradient(x, y):
-        return - ((y / max(x, 1e-8)) + ((1 - y) / max(1 - x, 1e-8)))
+    def loss_gradient(y_hat, y):
+        return - ((y / np.maximum(y_hat, 1e-8)) - ((1 - y) / np.maximum(1 - y_hat, 1e-8)))
+
+    @staticmethod
+    def grad_accumulator(grads):
+        return np.mean(grads, axis=0)
 
 
 class CrossEntropyLoss:
